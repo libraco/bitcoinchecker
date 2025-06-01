@@ -1,6 +1,6 @@
 # Bitcoin Checker
 
-![Bitcoin Logo](https://bitcoin.org/img/icons/opengraph.png)
+<img src="https://bitcoin.org/img/icons/opengraph.png" alt="Bitcoin Logo" width="200">
 
 ## Overview
 
@@ -16,7 +16,7 @@ Bitcoin Checker is a simple, user-friendly web application that allows users to 
 
 ## Demo
 
-You can try the live demo by visiting [Bitcoin Checker Demo](https://libraco.github.io/bitcoinchecker/) (update this link after deployment)
+You can try the live demo by visiting [Bitcoin Checker Demo](https://libraco.github.io/bitcoinchecker/)
 
 ## Screenshots
 
@@ -56,7 +56,7 @@ You can try the live demo by visiting [Bitcoin Checker Demo](https://libraco.git
    cd bitcoinchecker
    ```
 
-3. Open `bitoinchecker.html` in your web browser
+3. Open `index.html` in your web browser
 
 ## API Usage
 
@@ -85,11 +85,15 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Blockchain.com API](https://www.blockchain.com/api) for providing Bitcoin data
 - [Font Awesome](https://fontawesome.com/) for the icons
 
-## Contact
+## Donation
 
-Your Name - [your-email@example.com](mailto:your-email@example.com)
+If you find this tool useful, please consider donating:
 
-Project Link: [https://github.com/libraco/bitcoinchecker](https://github.com/libraco/bitcoinchecker)
+BTC: `bc1quhsqgufun9fnqr8e4ntexg6q4gv62kmknyc97l`
+
+## Project Link
+
+[https://github.com/libraco/bitcoinchecker](https://github.com/libraco/bitcoinchecker)
 
 ---
 
