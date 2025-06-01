@@ -16,7 +16,7 @@ Bitcoin Checker is a simple, user-friendly web application that allows users to 
 
 ## Demo
 
-You can try the live demo by visiting [Bitcoin Checker Demo](https://your-github-username.github.io/bitcoinchecker/) (update this link after deployment)
+You can try the live demo by visiting [Bitcoin Checker Demo](https://libraco.github.io/bitcoinchecker/) (update this link after deployment)
 
 ## Screenshots
 
@@ -48,7 +48,7 @@ You can try the live demo by visiting [Bitcoin Checker Demo](https://your-github
 
 1. Clone this repository:
    ```
-   git clone https://github.com/your-github-username/bitcoinchecker.git
+   git clone https://github.com/libraco/bitcoinchecker.git
    ```
 
 2. Navigate to the project directory:
@@ -89,7 +89,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 Your Name - [your-email@example.com](mailto:your-email@example.com)
 
-Project Link: [https://github.com/your-github-username/bitcoinchecker](https://github.com/your-github-username/bitcoinchecker)
+Project Link: [https://github.com/libraco/bitcoinchecker](https://github.com/libraco/bitcoinchecker)
 
 ---
 
