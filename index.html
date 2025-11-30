@@ -4,9 +4,12 @@
   <title>Bitcoin Checker - Check BTC Address Balance and Transactions</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="A simple tool to check Bitcoin wallet addresses and transaction hashes, view balances, and track transaction history.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' https://bitcoin.org data:; connect-src 'self' https://blockchain.info https://api.coindesk.com https://api.coingecko.com https://api.binance.com https://www.blockchain.com;">
   <link rel="icon" href="https://bitcoin.org/favicon.ico" type="image/x-icon">
   <link rel="shortcut icon" href="https://bitcoin.org/favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" 
+        integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ==" 
+        crossorigin="anonymous" referrerpolicy="no-referrer">
   <style>
   :root {
     --primary-color: #f7931a;
@@ -51,7 +54,6 @@
     font-size: 2.2rem;
   }
     
-      /* Responsive styles */
   @media (max-width: 768px) {
     h1 {
       font-size: 1.8rem;
@@ -234,12 +236,11 @@
     white-space: nowrap;
   }
   
-  /* Định nghĩa chiều rộng cho các cột */
-  table th:nth-child(1), table td:nth-child(1) { width: 20%; } /* Date & Time */
-  table th:nth-child(2), table td:nth-child(2) { width: 10%; } /* Type */
-  table th:nth-child(3), table td:nth-child(3) { width: 30%; } /* Transaction ID */
-  table th:nth-child(4), table td:nth-child(4) { width: 20%; } /* Amount BTC */
-  table th:nth-child(5), table td:nth-child(5) { width: 20%; } /* Amount USD */
+  table th:nth-child(1), table td:nth-child(1) { width: 20%; }
+  table th:nth-child(2), table td:nth-child(2) { width: 10%; }
+  table th:nth-child(3), table td:nth-child(3) { width: 30%; }
+  table th:nth-child(4), table td:nth-child(4) { width: 20%; }
+  table th:nth-child(5), table td:nth-child(5) { width: 20%; }
   
   th {
     background-color: #f2f2f2;
@@ -269,7 +270,6 @@
     color: var(--danger-color);
   }
   
-  /* Donation styles */
   .donation {
     margin-top: 10px;
     font-size: 0.9rem;
@@ -404,7 +404,6 @@
     margin: 5px 0;
   }
   
-  /* Styles for intro content */
   .features-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -478,7 +477,6 @@
     text-decoration: underline;
   }
   
-  /* Hide intro content when results are shown */
   #results:not([style*="display: none"]) ~ #intro-content {
     display: none;
   }
@@ -492,7 +490,7 @@
     
     <div class="search-box">
       <div class="search-input">
-        <input type="text" id="address" placeholder="Enter a Bitcoin address...">
+        <input type="text" id="address" placeholder="Enter a Bitcoin address..." maxlength="100">
         <button onclick="getBalance()"><i class="fas fa-search"></i> Check Balance</button>
       </div>
       <div id="errorMessage" class="error-message"></div>
@@ -540,7 +538,7 @@
       <div class="bitcoin-info">
         <h3><i class="fab fa-bitcoin"></i> What is Bitcoin?</h3>
         <p>Bitcoin is a decentralized digital currency that enables instant payments to anyone, anywhere in the world. Bitcoin uses peer-to-peer technology to operate with no central authority: transaction management and money issuance are carried out collectively by the network.</p>
-        <p>Learn more about Bitcoin at <a href="https://bitcoin.org" target="_blank">bitcoin.org</a>.</p>
+        <p>Learn more about Bitcoin at <a href="https://bitcoin.org" target="_blank" rel="noopener noreferrer">bitcoin.org</a>.</p>
       </div>
     </div>
     
@@ -596,6 +594,70 @@
     </div>
 
   <script>
+    // Security: Rate limiting
+    const rateLimiter = {
+      requests: [],
+      maxRequests: 10,
+      timeWindow: 60000, // 1 minute
+      
+      canMakeRequest() {
+        const now = Date.now();
+        this.requests = this.requests.filter(time => now - time < this.timeWindow);
+        
+        if (this.requests.length >= this.maxRequests) {
+          return false;
+        }
+        
+        this.requests.push(now);
+        return true;
+      }
+    };
+
+    // Security: Input sanitization
+    function sanitizeText(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Security: Validate Bitcoin address format
+    function validateBitcoinAddress(address) {
+      if (!address || typeof address !== 'string') {
+        return false;
+      }
+      
+      // Length check
+      if (address.length < 26 || address.length > 90) {
+        return false;
+      }
+      
+      // Check for valid Bitcoin address patterns
+      const legacyPattern = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/;
+      const segwitPattern = /^bc1[a-z0-9]{39,87}$/;
+      const txHashPattern = /^[0-9a-fA-F]{64}$/;
+      
+      return legacyPattern.test(address) || segwitPattern.test(address) || txHashPattern.test(address);
+    }
+
+    // Security: Safe DOM manipulation
+    function setTextContent(elementId, text) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.textContent = sanitizeText(String(text));
+      }
+    }
+
+    function createSafeElement(tag, className, textContent) {
+      const element = document.createElement(tag);
+      if (className) {
+        element.className = className;
+      }
+      if (textContent) {
+        element.textContent = sanitizeText(String(textContent));
+      }
+      return element;
+    }
+
 async function getBalance() {
   const input = document.getElementById("address").value.trim();
   
@@ -603,14 +665,24 @@ async function getBalance() {
     showError("Please enter a Bitcoin address or transaction hash");
     return;
   }
+  
+  // Security: Validate input
+  if (!validateBitcoinAddress(input)) {
+    showError("Invalid Bitcoin address or transaction hash format");
+    return;
+  }
+  
+  // Security: Rate limiting
+  if (!rateLimiter.canMakeRequest()) {
+    showError("Too many requests. Please wait a moment before trying again.");
+    return;
+  }
       
-  // Show loading indicator and hide previous results
   document.getElementById("loading").style.display = "block";
   document.getElementById("results").style.display = "none";
   document.getElementById("errorMessage").style.display = "none";
   document.getElementById("intro-content").style.display = "none";
 
-  // Check if input is a transaction hash (64 hexadecimal characters)
   const isTransactionHash = /^[0-9a-fA-F]{64}$/.test(input);
 
   if (isTransactionHash) {
@@ -618,622 +690,553 @@ async function getBalance() {
     return;
   }
       
-      try {
-    // Check internet connection first
+  try {
     if (!navigator.onLine) {
-      throw new Error("No internet connection. Please check your network and try again.");
+      throw new Error("No internet connection detected");
     }
         
-        // Get BTC price first - try multiple sources
-        let btcToUsdRate;
-        
-        // Try CoinDesk API first
-        try {
-          const btcPriceUrl = 'https://api.coindesk.com/v1/bpi/currentprice/BTC.json';
-          const btcPriceResponse = await fetch(btcPriceUrl, { timeout: 10000 });
-          
-          if (btcPriceResponse.ok) {
-            const btcPriceData = await btcPriceResponse.json();
-            btcToUsdRate = parseFloat(btcPriceData.bpi.USD.rate.replace(/,/g, ""));
-            console.log('Successfully fetched BTC price from CoinDesk:', btcToUsdRate);
-          } else {
-            throw new Error(`Failed to fetch BTC price from CoinDesk: ${btcPriceResponse.status}`);
-          }
-        } catch (coinDeskError) {
-          console.error('Error fetching BTC price from CoinDesk:', coinDeskError);
-          
-          // Try CoinGecko API as fallback
-          try {
-            const coingeckoUrl = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd';
-            const coingeckoResponse = await fetch(coingeckoUrl, { timeout: 10000 });
-            
-            if (coingeckoResponse.ok) {
-              const coingeckoData = await coingeckoResponse.json();
-              btcToUsdRate = coingeckoData.bitcoin.usd;
-              console.log('Successfully fetched BTC price from CoinGecko:', btcToUsdRate);
-            } else {
-              throw new Error(`Failed to fetch BTC price from CoinGecko: ${coingeckoResponse.status}`);
-            }
-          } catch (coingeckoError) {
-            console.error('Error fetching BTC price from CoinGecko:', coingeckoError);
-            
-            // Try Binance API as a third option
-            try {
-              const binanceUrl = 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT';
-              const binanceResponse = await fetch(binanceUrl, { timeout: 10000 });
-              
-              if (binanceResponse.ok) {
-                const binanceData = await binanceResponse.json();
-                btcToUsdRate = parseFloat(binanceData.price);
-                console.log('Successfully fetched BTC price from Binance:', btcToUsdRate);
-              } else {
-                throw new Error(`Failed to fetch BTC price from Binance: ${binanceResponse.status}`);
-              }
-            } catch (binanceError) {
-              console.error('Error fetching BTC price from all sources:', binanceError);
-              // If all APIs fail, use a hardcoded approximate value as last resort
-              btcToUsdRate = 50000; // Approximate value, will be updated on next successful API call
-              console.warn('Using approximate BTC price:', btcToUsdRate);
-              showError("Warning: Using approximate Bitcoin price. Actual values may differ.");
-            }
-          }
-        }
-        
-        // Validate that we have a valid price
-        if (!btcToUsdRate || isNaN(btcToUsdRate) || btcToUsdRate <= 0) {
-          btcToUsdRate = 50000; // Fallback to approximate value
-          console.warn('Invalid BTC price, using approximate value:', btcToUsdRate);
-          showError("Warning: Using approximate Bitcoin price. Actual values may differ.");
-        }
-        
-        // For SegWit addresses (starting with bc1), we need to use a different approach
-        // First try to get address info from rawaddr endpoint
-        try {
-          const addrInfoUrl = `https://blockchain.info/rawaddr/${input}`;
-          const addrInfoResponse = await fetch(addrInfoUrl, { timeout: 15000 });
-          
-          if (!addrInfoResponse.ok) {
-            if (addrInfoResponse.status === 404) {
-              showError("Invalid Bitcoin address or no data available.");
-              document.getElementById("loading").style.display = "none";
-              return;
-            }
-            throw new Error(`Failed to fetch address info: ${addrInfoResponse.status} ${addrInfoResponse.statusText}`);
-          }
-          
-          const addrInfoData = await addrInfoResponse.json();
-          
-          if (addrInfoData && typeof addrInfoData.final_balance !== 'undefined') {
-            // Calculate balances
-            const totalReceived = addrInfoData.total_received / 100000000 || 0;
-            const finalBalance = addrInfoData.final_balance / 100000000 || 0;
-            const totalSent = addrInfoData.total_sent / 100000000 || 0;
-            
-            // Update balance display
-            document.getElementById("totalReceived").innerText = totalReceived.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC";
-            document.getElementById("totalReceivedUsd").innerText = "$" + (totalReceived * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD";
-            
-            document.getElementById("finalBalance").innerText = finalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC";
-            document.getElementById("finalBalanceUsd").innerText = "$" + (finalBalance * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD";
-            
-            document.getElementById("totalSent").innerText = totalSent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC";
-            document.getElementById("totalSentUsd").innerText = "$" + (totalSent * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD";
-            
-            // Get and display transactions
-            await displayTransactions(input, btcToUsdRate, addrInfoData);
-            
-            // Show results
-            document.getElementById("loading").style.display = "none";
-            document.getElementById("results").style.display = "block";
-            return;
-          }
-        } catch (addrInfoError) {
-          console.error('Error fetching address info:', addrInfoError);
-          // Only throw if it's not a 404 error (which we handle by continuing to fallback)
-          if (addrInfoError.message && !addrInfoError.message.includes('404')) {
-            throw addrInfoError;
-          }
-          // Continue with the fallback method
-        }
-        
-        // Fallback to the balance API
-        try {
-          const balanceUrl = `https://blockchain.info/balance?active=${input}`;
-          const balanceResponse = await fetch(balanceUrl, { timeout: 15000 });
-          
-          if (!balanceResponse.ok) {
-            if (balanceResponse.status === 404) {
-              showError("Invalid Bitcoin address or no data available.");
-              document.getElementById("loading").style.display = "none";
-              return;
-            }
-            throw new Error(`Failed to fetch balance: ${balanceResponse.status} ${balanceResponse.statusText}`);
-          }
-          
-          const balanceData = await balanceResponse.json();
-
-          if (!balanceData || !balanceData[input]) {
-            showError("Invalid Bitcoin address or no data available.");
-            document.getElementById("loading").style.display = "none";
-            return;
-          }
-
-          // Calculate balances
-          const totalReceived = balanceData[input].total_received / 100000000 || 0;
-          const finalBalance = balanceData[input].final_balance / 100000000 || 0;
-          const totalSent = totalReceived - finalBalance;
-
-          // Update balance display
-          document.getElementById("totalReceived").innerText = totalReceived.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC";
-          document.getElementById("totalReceivedUsd").innerText = "$" + (totalReceived * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD";
-          
-          document.getElementById("finalBalance").innerText = finalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC";
-          document.getElementById("finalBalanceUsd").innerText = "$" + (finalBalance * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD";
-          
-          document.getElementById("totalSent").innerText = totalSent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC";
-          document.getElementById("totalSentUsd").innerText = "$" + (totalSent * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD";
-
-          // Get and display transactions
-          await displayTransactions(input, btcToUsdRate);
-          
-          // Show results
-          document.getElementById("loading").style.display = "none";
-          document.getElementById("results").style.display = "block";
-        } catch (balanceError) {
-          console.error('Error fetching balance:', balanceError);
-          throw balanceError;
-        }
-        
-      } catch (error) {
-        console.error('Error:', error);
-        showError(error.message || "An error occurred while fetching data. Please try again.");
-        document.getElementById("loading").style.display = "none";
-      }
-    }
+    let btcToUsdRate;
     
-    async function getTransactionDetails(txHash) {
-      try {
-    // Check internet connection first
-    if (!navigator.onLine) {
-      throw new Error("No internet connection. Please check your network and try again.");
-    }
-        
-        // Get BTC price first - try multiple sources
-        let btcToUsdRate;
-        
-        // Try CoinDesk API first
-        try {
-          const btcPriceUrl = 'https://api.coindesk.com/v1/bpi/currentprice/BTC.json';
-          const btcPriceResponse = await fetch(btcPriceUrl, { timeout: 10000 });
-          
-          if (btcPriceResponse.ok) {
-            const btcPriceData = await btcPriceResponse.json();
-            btcToUsdRate = parseFloat(btcPriceData.bpi.USD.rate.replace(/,/g, ""));
-            console.log('Successfully fetched BTC price from CoinDesk:', btcToUsdRate);
-          } else {
-            throw new Error(`Failed to fetch BTC price from CoinDesk: ${btcPriceResponse.status}`);
-          }
-        } catch (coinDeskError) {
-          console.error('Error fetching BTC price from CoinDesk:', coinDeskError);
-          
-          // Try CoinGecko API as fallback
-          try {
-            const coingeckoUrl = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd';
-            const coingeckoResponse = await fetch(coingeckoUrl, { timeout: 10000 });
-            
-            if (coingeckoResponse.ok) {
-              const coingeckoData = await coingeckoResponse.json();
-              btcToUsdRate = coingeckoData.bitcoin.usd;
-              console.log('Successfully fetched BTC price from CoinGecko:', btcToUsdRate);
-            } else {
-              throw new Error(`Failed to fetch BTC price from CoinGecko: ${coingeckoResponse.status}`);
-            }
-          } catch (coingeckoError) {
-            console.error('Error fetching BTC price from CoinGecko:', coingeckoError);
-            
-            // Try Binance API as a third option
-            try {
-              const binanceUrl = 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT';
-              const binanceResponse = await fetch(binanceUrl, { timeout: 10000 });
-              
-              if (binanceResponse.ok) {
-                const binanceData = await binanceResponse.json();
-                btcToUsdRate = parseFloat(binanceData.price);
-                console.log('Successfully fetched BTC price from Binance:', btcToUsdRate);
-              } else {
-                throw new Error(`Failed to fetch BTC price from Binance: ${binanceResponse.status}`);
-              }
-            } catch (binanceError) {
-              console.error('Error fetching BTC price from all sources:', binanceError);
-              // If all APIs fail, use a hardcoded approximate value as last resort
-              btcToUsdRate = 50000; // Approximate value, will be updated on next successful API call
-              console.warn('Using approximate BTC price:', btcToUsdRate);
-              showError("Warning: Using approximate Bitcoin price. Actual values may differ.");
-            }
-          }
+    try {
+      const btcPriceUrl = 'https://api.coindesk.com/v1/bpi/currentprice/BTC.json';
+      const btcPriceResponse = await fetch(btcPriceUrl, { 
+        timeout: 10000,
+        headers: {
+          'Accept': 'application/json'
         }
-        
-        // Validate that we have a valid price
-        if (!btcToUsdRate || isNaN(btcToUsdRate) || btcToUsdRate <= 0) {
-          btcToUsdRate = 50000; // Fallback to approximate value
-          console.warn('Invalid BTC price, using approximate value:', btcToUsdRate);
-          showError("Warning: Using approximate Bitcoin price. Actual values may differ.");
-        }
-        
-        // Fetch transaction details
-        const txUrl = `https://blockchain.info/rawtx/${txHash}`;
-        const txResponse = await fetch(txUrl, { timeout: 15000 });
-        
-        if (!txResponse.ok) {
-          if (txResponse.status === 404) {
-            showError("Invalid transaction hash or no data available.");
-            document.getElementById("loading").style.display = "none";
-            return;
-          }
-          throw new Error(`Failed to fetch transaction details: ${txResponse.status} ${txResponse.statusText}`);
-        }
-        
-        const txData = await txResponse.json();
-        
-        if (!txData || !txData.hash) {
-          showError("Invalid transaction hash or no data available.");
-          document.getElementById("loading").style.display = "none";
-          return;
-        }
-        
-        // Calculate total input and output values
-        let totalInput = 0;
-        let totalOutput = 0;
-        
-        if (txData.inputs && Array.isArray(txData.inputs)) {
-          txData.inputs.forEach(input => {
-            if (input.prev_out && typeof input.prev_out.value !== 'undefined') {
-              totalInput += input.prev_out.value;
-            }
-          });
-        }
-        
-        if (txData.out && Array.isArray(txData.out)) {
-          txData.out.forEach(output => {
-            if (typeof output.value !== 'undefined') {
-              totalOutput += output.value;
-            }
-          });
-        }
-        
-        // Convert satoshis to BTC
-        const totalInputBTC = totalInput / 100000000;
-        const totalOutputBTC = totalOutput / 100000000;
-        const feeBTC = totalInputBTC - totalOutputBTC;
-        
-        // Update balance display with transaction details
-        document.getElementById("totalReceived").innerText = totalInputBTC.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC";
-        document.getElementById("totalReceivedUsd").innerText = "$" + (totalInputBTC * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD";
-        
-        document.getElementById("totalSent").innerText = totalOutputBTC.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC";
-        document.getElementById("totalSentUsd").innerText = "$" + (totalOutputBTC * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD";
-        
-        document.getElementById("finalBalance").innerText = feeBTC.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC (Fee)";
-        document.getElementById("finalBalanceUsd").innerText = "$" + (feeBTC * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD";
-        
-        // Display transaction details
-        const transactionsBody = document.getElementById("transactionsBody");
-        transactionsBody.innerHTML = "";
-        document.getElementById("noTransactions").style.display = "none";
-        
-        // Format date and time
-        const txDate = new Date(txData.time * 1000);
-        const formattedDate = txDate.toLocaleDateString() + ' ' + txDate.toLocaleTimeString();
-        
-        // Create a row for the transaction
-        const row = document.createElement('tr');
-        
-        // Date & Time
-        const dateCell = document.createElement('td');
-        dateCell.textContent = formattedDate;
-        row.appendChild(dateCell);
-        
-        // Transaction Type
-        const typeCell = document.createElement('td');
-        const typeSpan = document.createElement('span');
-        typeSpan.className = 'transaction-type';
-        typeSpan.textContent = 'Transaction';
-        typeSpan.style.backgroundColor = 'rgba(247, 147, 26, 0.1)';
-        typeSpan.style.color = '#f7931a';
-        typeCell.appendChild(typeSpan);
-        row.appendChild(typeCell);
-        
-        // Transaction ID
-        const txIdCell = document.createElement('td');
-        const txLink = document.createElement('a');
-        txLink.href = `https://www.blockchain.com/btc/tx/${txData.hash}`;
-        txLink.target = '_blank';
-        txLink.textContent = txData.hash.substring(0, 10) + '...';
-        txIdCell.appendChild(txLink);
-        row.appendChild(txIdCell);
-        
-        // Fee Amount
-        const btcCell = document.createElement('td');
-        btcCell.textContent = `${feeBTC.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })} BTC (Fee)`;
-        row.appendChild(btcCell);
-        
-        // USD Amount
-        const usdCell = document.createElement('td');
-        usdCell.textContent = `$${(feeBTC * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        row.appendChild(usdCell);
-        
-        transactionsBody.appendChild(row);
-        
-        // Add rows for inputs
-        if (txData.inputs && txData.inputs.length > 0) {
-          txData.inputs.forEach((input, index) => {
-            if (input.prev_out && input.prev_out.addr) {
-              const inputRow = document.createElement('tr');
-              inputRow.style.backgroundColor = 'rgba(220, 53, 69, 0.05)';
-              
-              // Date & Time (empty for inputs)
-              const dateCell = document.createElement('td');
-              dateCell.textContent = '';
-              inputRow.appendChild(dateCell);
-              
-              // Transaction Type
-              const typeCell = document.createElement('td');
-              const typeSpan = document.createElement('span');
-              typeSpan.className = 'transaction-type sent';
-              typeSpan.textContent = 'Input';
-              typeCell.appendChild(typeSpan);
-              inputRow.appendChild(typeCell);
-              
-              // Address
-              const addrCell = document.createElement('td');
-              const addrLink = document.createElement('a');
-              addrLink.href = `https://www.blockchain.com/btc/address/${input.prev_out.addr}`;
-              addrLink.target = '_blank';
-              addrLink.textContent = input.prev_out.addr.substring(0, 10) + '...';
-              addrCell.appendChild(addrLink);
-              inputRow.appendChild(addrCell);
-              
-              // BTC Amount
-              const btcAmount = (input.prev_out.value / 100000000) || 0;
-              const btcCell = document.createElement('td');
-              btcCell.className = 'sent';
-              btcCell.textContent = `-${btcAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })} BTC`;
-              inputRow.appendChild(btcCell);
-              
-              // USD Amount
-              const usdCell = document.createElement('td');
-              usdCell.textContent = `$${(btcAmount * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-              inputRow.appendChild(usdCell);
-              
-              transactionsBody.appendChild(inputRow);
-            }
-          });
-        }
-        
-        // Add rows for outputs
-        if (txData.out && txData.out.length > 0) {
-          txData.out.forEach((output, index) => {
-            if (output.addr) {
-              const outputRow = document.createElement('tr');
-              outputRow.style.backgroundColor = 'rgba(23, 162, 184, 0.05)';
-              
-              // Date & Time (empty for outputs)
-              const dateCell = document.createElement('td');
-              dateCell.textContent = '';
-              outputRow.appendChild(dateCell);
-              
-              // Transaction Type
-              const typeCell = document.createElement('td');
-              const typeSpan = document.createElement('span');
-              typeSpan.className = 'transaction-type received';
-              typeSpan.textContent = 'Output';
-              typeCell.appendChild(typeSpan);
-              outputRow.appendChild(typeCell);
-              
-              // Address
-              const addrCell = document.createElement('td');
-              const addrLink = document.createElement('a');
-              addrLink.href = `https://www.blockchain.com/btc/address/${output.addr}`;
-              addrLink.target = '_blank';
-              addrLink.textContent = output.addr.substring(0, 10) + '...';
-              addrCell.appendChild(addrLink);
-              outputRow.appendChild(addrCell);
-              
-              // BTC Amount
-              const btcAmount = (output.value / 100000000) || 0;
-              const btcCell = document.createElement('td');
-              btcCell.className = 'received';
-              btcCell.textContent = `+${btcAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })} BTC`;
-              outputRow.appendChild(btcCell);
-              
-              // USD Amount
-              const usdCell = document.createElement('td');
-              usdCell.textContent = `$${(btcAmount * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-              outputRow.appendChild(usdCell);
-              
-              transactionsBody.appendChild(outputRow);
-            }
-          });
-        }
-        
-        // Show results
-        document.getElementById("loading").style.display = "none";
-        document.getElementById("results").style.display = "block";
-        
-      } catch (error) {
-        console.error('Error:', error);
-        showError(error.message || "An error occurred while fetching transaction data. Please try again.");
-        document.getElementById("loading").style.display = "none";
+      });
+      
+      if (btcPriceResponse.ok) {
+        const btcPriceData = await btcPriceResponse.json();
+        btcToUsdRate = parseFloat(btcPriceData.bpi.USD.rate.replace(/,/g, ""));
+      } else {
+        throw new Error("Price API unavailable");
       }
-    }
-
-    async function displayTransactions(address, btcToUsdRate, existingData = null) {
+    } catch (coinDeskError) {
       try {
-        // Use existing data if provided, otherwise fetch it
-        let data;
-        if (existingData) {
-          data = existingData;
-        } else {
-          try {
-            const txUrl = `https://blockchain.info/rawaddr/${address}?limit=50`;
-            const txResponse = await fetch(txUrl, { timeout: 15000 });
-            
-            if (!txResponse.ok) {
-              throw new Error(`Failed to fetch transactions: ${txResponse.status} ${txResponse.statusText}`);
-            }
-            
-            data = await txResponse.json();
-          } catch (fetchError) {
-            console.error('Error fetching transaction data:', fetchError);
-            document.getElementById("noTransactions").style.display = "block";
-            document.getElementById("noTransactions").innerHTML = 
-              `<i class="fas fa-exclamation-circle"></i> Error loading transactions: ${fetchError.message || 'Please try again later.'}`;
-            return;
-          }
-        }
-        
-        const transactionsBody = document.getElementById("transactionsBody");
-        transactionsBody.innerHTML = "";
-        
-        if (!data || !data.txs || data.txs.length === 0) {
-          document.getElementById("noTransactions").style.display = "block";
-          return;
-        }
-        
-        document.getElementById("noTransactions").style.display = "none";
-        
-        let transactionCount = 0;
-        
-        data.txs.forEach(tx => {
-          try {
-            // Skip invalid transaction objects
-            if (!tx || !tx.hash || !tx.time) {
-              console.warn('Invalid transaction object:', tx);
-              return;
-            }
-            
-            // Format date and time
-            const txDate = new Date(tx.time * 1000);
-            const formattedDate = txDate.toLocaleDateString() + ' ' + txDate.toLocaleTimeString();
-            
-            // Determine if this transaction is incoming or outgoing for this address
-            let isIncoming = false;
-            let relevantAmount = 0;
-            
-            // Check outputs for incoming transactions (money received by this address)
-            if (tx.out && Array.isArray(tx.out)) {
-              tx.out.forEach(output => {
-                // Handle both standard addresses and SegWit (bech32) addresses
-                if (output.addr === address || 
-                    (output.scriptPubKey && output.scriptPubKey.addresses && 
-                     Array.isArray(output.scriptPubKey.addresses) && 
-                     output.scriptPubKey.addresses.includes(address))) {
-                  isIncoming = true;
-                  relevantAmount += output.value || 0;
-                }
-              });
-            }
-            
-            // If not found in outputs, check inputs for outgoing transactions
-            if (!isIncoming && tx.inputs && Array.isArray(tx.inputs)) {
-              tx.inputs.forEach(input => {
-                // Handle both standard addresses and SegWit (bech32) addresses
-                if ((input.prev_out && input.prev_out.addr === address) || 
-                    (input.prev_out && input.prev_out.scriptPubKey && 
-                     input.prev_out.scriptPubKey.addresses && 
-                     Array.isArray(input.prev_out.scriptPubKey.addresses) && 
-                     input.prev_out.scriptPubKey.addresses.includes(address))) {
-                  relevantAmount += (input.prev_out && input.prev_out.value) || 0;
-                }
-              });
-            }
-            
-            // Skip transactions with zero amount (likely not related to this address)
-            if (relevantAmount === 0) {
-              return;
-            }
-            
-            // Convert satoshis to BTC
-            const btcAmount = relevantAmount / 100000000;
-            const usdAmount = btcAmount * btcToUsdRate;
-            
-            // Create transaction row
-            const row = document.createElement('tr');
-            
-            // Date & Time
-            const dateCell = document.createElement('td');
-            dateCell.textContent = formattedDate;
-            row.appendChild(dateCell);
-            
-            // Transaction Type
-            const typeCell = document.createElement('td');
-            const typeSpan = document.createElement('span');
-            typeSpan.className = `transaction-type ${isIncoming ? 'received' : 'sent'}`;
-            typeSpan.textContent = isIncoming ? 'Received' : 'Sent';
-            typeCell.appendChild(typeSpan);
-            row.appendChild(typeCell);
-            
-            // Transaction ID (shortened with link)
-            const txIdCell = document.createElement('td');
-            const txLink = document.createElement('a');
-            txLink.href = `https://www.blockchain.com/btc/tx/${tx.hash}`;
-            txLink.target = '_blank';
-            txLink.textContent = tx.hash.substring(0, 10) + '...';
-            txIdCell.appendChild(txLink);
-            row.appendChild(txIdCell);
-            
-            // BTC Amount
-            const btcCell = document.createElement('td');
-            btcCell.className = isIncoming ? 'received' : 'sent';
-            btcCell.textContent = `${isIncoming ? '+' : '-'}${btcAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })} BTC`;
-            row.appendChild(btcCell);
-            
-            // USD Amount
-            const usdCell = document.createElement('td');
-            usdCell.textContent = `$${usdAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            row.appendChild(usdCell);
-            
-            transactionsBody.appendChild(row);
-            transactionCount++;
-          } catch (txError) {
-            console.error('Error processing transaction:', txError, tx);
-            // Continue with next transaction
+        const coingeckoUrl = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd';
+        const coingeckoResponse = await fetch(coingeckoUrl, { 
+          timeout: 10000,
+          headers: {
+            'Accept': 'application/json'
           }
         });
         
-        // If no transactions were added to the table
-        if (transactionCount === 0) {
-          document.getElementById("noTransactions").style.display = "block";
+        if (coingeckoResponse.ok) {
+          const coingeckoData = await coingeckoResponse.json();
+          btcToUsdRate = coingeckoData.bitcoin.usd;
+        } else {
+          throw new Error("Price API unavailable");
         }
+      } catch (coingeckoError) {
+        try {
+          const binanceUrl = 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT';
+          const binanceResponse = await fetch(binanceUrl, { 
+            timeout: 10000,
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (binanceResponse.ok) {
+            const binanceData = await binanceResponse.json();
+            btcToUsdRate = parseFloat(binanceData.price);
+          } else {
+            throw new Error("All price APIs unavailable");
+          }
+        } catch (binanceError) {
+          throw new Error("Unable to fetch current Bitcoin price");
+        }
+      }
+    }
+    
+    if (!btcToUsdRate || isNaN(btcToUsdRate) || btcToUsdRate <= 0) {
+      throw new Error("Invalid price data received");
+    }
+    
+    try {
+      const addrInfoUrl = `https://blockchain.info/rawaddr/${encodeURIComponent(input)}`;
+      const addrInfoResponse = await fetch(addrInfoUrl, { 
+        timeout: 15000,
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (!addrInfoResponse.ok) {
+        if (addrInfoResponse.status === 404) {
+          showError("Address not found or has no transactions");
+          document.getElementById("loading").style.display = "none";
+          return;
+        }
+        throw new Error("Unable to fetch address data");
+      }
+      
+      const addrInfoData = await addrInfoResponse.json();
+      
+      if (addrInfoData && typeof addrInfoData.final_balance !== 'undefined') {
+        const totalReceived = addrInfoData.total_received / 100000000 || 0;
+        const finalBalance = addrInfoData.final_balance / 100000000 || 0;
+        const totalSent = addrInfoData.total_sent / 100000000 || 0;
         
-      } catch (error) {
-        console.error('Error displaying transactions:', error);
-        document.getElementById("noTransactions").style.display = "block";
-        document.getElementById("noTransactions").innerHTML = 
-          `<i class="fas fa-exclamation-circle"></i> Error loading transactions: ${error.message || 'Please try again later.'}`;
+        setTextContent("totalReceived", totalReceived.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC");
+        setTextContent("totalReceivedUsd", "$" + (totalReceived * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD");
+        
+        setTextContent("finalBalance", finalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC");
+        setTextContent("finalBalanceUsd", "$" + (finalBalance * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD");
+        
+        setTextContent("totalSent", totalSent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC");
+        setTextContent("totalSentUsd", "$" + (totalSent * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD");
+        
+        await displayTransactions(input, btcToUsdRate, addrInfoData);
+        
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("results").style.display = "block";
+        return;
+      }
+    } catch (addrInfoError) {
+      if (addrInfoError.message && !addrInfoError.message.includes('404')) {
+        throw addrInfoError;
       }
     }
     
-    function showError(message) {
-      const errorElement = document.getElementById("errorMessage");
-      errorElement.textContent = message;
-      errorElement.style.display = "block";
+    try {
+      const balanceUrl = `https://blockchain.info/balance?active=${encodeURIComponent(input)}`;
+      const balanceResponse = await fetch(balanceUrl, { 
+        timeout: 15000,
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
       
-      // Hide loading indicator
+      if (!balanceResponse.ok) {
+        if (balanceResponse.status === 404) {
+          showError("Address not found or has no transactions");
+          document.getElementById("loading").style.display = "none";
+          return;
+        }
+        throw new Error("Unable to fetch balance data");
+      }
+      
+      const balanceData = await balanceResponse.json();
+
+      if (!balanceData || !balanceData[input]) {
+        showError("No data available for this address");
+        document.getElementById("loading").style.display = "none";
+        return;
+      }
+
+      const totalReceived = balanceData[input].total_received / 100000000 || 0;
+      const finalBalance = balanceData[input].final_balance / 100000000 || 0;
+      const totalSent = totalReceived - finalBalance;
+
+      setTextContent("totalReceived", totalReceived.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC");
+      setTextContent("totalReceivedUsd", "$" + (totalReceived * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD");
+      
+      setTextContent("finalBalance", finalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC");
+      setTextContent("finalBalanceUsd", "$" + (finalBalance * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD");
+      
+      setTextContent("totalSent", totalSent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC");
+      setTextContent("totalSentUsd", "$" + (totalSent * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD");
+
+      await displayTransactions(input, btcToUsdRate);
+      
       document.getElementById("loading").style.display = "none";
+      document.getElementById("results").style.display = "block";
+    } catch (balanceError) {
+      throw balanceError;
+    }
+    
+  } catch (error) {
+    console.error('Error:', error);
+    showError("Unable to fetch data. Please try again later.");
+    document.getElementById("loading").style.display = "none";
+  }
+}
+
+async function getTransactionDetails(txHash) {
+  try {
+    if (!navigator.onLine) {
+      throw new Error("No internet connection detected");
+    }
+    
+    let btcToUsdRate;
+    
+    try {
+      const btcPriceUrl = 'https://api.coindesk.com/v1/bpi/currentprice/BTC.json';
+      const btcPriceResponse = await fetch(btcPriceUrl, { 
+        timeout: 10000,
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
       
-      // Show intro content if results are not displayed
-      if (document.getElementById("results").style.display === "none") {
-        document.getElementById("intro-content").style.display = "block";
+      if (btcPriceResponse.ok) {
+        const btcPriceData = await btcPriceResponse.json();
+        btcToUsdRate = parseFloat(btcPriceData.bpi.USD.rate.replace(/,/g, ""));
+      } else {
+        throw new Error("Price API unavailable");
+      }
+    } catch (coinDeskError) {
+      try {
+        const coingeckoUrl = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd';
+        const coingeckoResponse = await fetch(coingeckoUrl, { 
+          timeout: 10000,
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (coingeckoResponse.ok) {
+          const coingeckoData = await coingeckoResponse.json();
+          btcToUsdRate = coingeckoData.bitcoin.usd;
+        } else {
+          throw new Error("Price API unavailable");
+        }
+      } catch (coingeckoError) {
+        try {
+          const binanceUrl = 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT';
+          const binanceResponse = await fetch(binanceUrl, { 
+            timeout: 10000,
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (binanceResponse.ok) {
+            const binanceData = await binanceResponse.json();
+            btcToUsdRate = parseFloat(binanceData.price);
+          } else {
+            throw new Error("All price APIs unavailable");
+          }
+        } catch (binanceError) {
+          throw new Error("Unable to fetch current Bitcoin price");
+        }
       }
     }
     
-    // Add event listener for Enter key in the address input
-    document.getElementById("address").addEventListener("keyup", function(event) {
-      if (event.key === "Enter") {
-        getBalance();
+    if (!btcToUsdRate || isNaN(btcToUsdRate) || btcToUsdRate <= 0) {
+      throw new Error("Invalid price data received");
+    }
+    
+    const txUrl = `https://blockchain.info/rawtx/${encodeURIComponent(txHash)}`;
+    const txResponse = await fetch(txUrl, { 
+      timeout: 15000,
+      headers: {
+        'Accept': 'application/json'
       }
     });
+    
+    if (!txResponse.ok) {
+      if (txResponse.status === 404) {
+        showError("Transaction not found");
+        document.getElementById("loading").style.display = "none";
+        return;
+      }
+      throw new Error("Unable to fetch transaction data");
+    }
+    
+    const txData = await txResponse.json();
+    
+    if (!txData || !txData.hash) {
+      showError("Invalid transaction data");
+      document.getElementById("loading").style.display = "none";
+      return;
+    }
+    
+    let totalInput = 0;
+    let totalOutput = 0;
+    
+    if (txData.inputs && Array.isArray(txData.inputs)) {
+      txData.inputs.forEach(input => {
+        if (input.prev_out && typeof input.prev_out.value !== 'undefined') {
+          totalInput += input.prev_out.value;
+        }
+      });
+    }
+    
+    if (txData.out && Array.isArray(txData.out)) {
+      txData.out.forEach(output => {
+        if (typeof output.value !== 'undefined') {
+          totalOutput += output.value;
+        }
+      });
+    }
+    
+    const totalInputBTC = totalInput / 100000000;
+    const totalOutputBTC = totalOutput / 100000000;
+    const feeBTC = totalInputBTC - totalOutputBTC;
+    
+    setTextContent("totalReceived", totalInputBTC.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC");
+    setTextContent("totalReceivedUsd", "$" + (totalInputBTC * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD");
+    
+    setTextContent("totalSent", totalOutputBTC.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC");
+    setTextContent("totalSentUsd", "$" + (totalOutputBTC * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD");
+    
+    setTextContent("finalBalance", feeBTC.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }) + " BTC (Fee)");
+    setTextContent("finalBalanceUsd", "$" + (feeBTC * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USD");
+    
+    const transactionsBody = document.getElementById("transactionsBody");
+    transactionsBody.innerHTML = "";
+    document.getElementById("noTransactions").style.display = "none";
+    
+    const txDate = new Date(txData.time * 1000);
+    const formattedDate = txDate.toLocaleDateString() + ' ' + txDate.toLocaleTimeString();
+    
+    const row = document.createElement('tr');
+    
+    const dateCell = createSafeElement('td', '', formattedDate);
+    row.appendChild(dateCell);
+    
+    const typeCell = document.createElement('td');
+    const typeSpan = createSafeElement('span', 'transaction-type', 'Transaction');
+    typeSpan.style.backgroundColor = 'rgba(247, 147, 26, 0.1)';
+    typeSpan.style.color = '#f7931a';
+    typeCell.appendChild(typeSpan);
+    row.appendChild(typeCell);
+    
+    const txIdCell = document.createElement('td');
+    const txLink = document.createElement('a');
+    txLink.href = `https://www.blockchain.com/btc/tx/${encodeURIComponent(txData.hash)}`;
+    txLink.target = '_blank';
+    txLink.rel = 'noopener noreferrer';
+    txLink.textContent = sanitizeText(txData.hash.substring(0, 10) + '...');
+    txIdCell.appendChild(txLink);
+    row.appendChild(txIdCell);
+    
+    const btcCell = createSafeElement('td', '', `${feeBTC.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })} BTC (Fee)`);
+    row.appendChild(btcCell);
+    
+    const usdCell = createSafeElement('td', '', `${(feeBTC * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+    row.appendChild(usdCell);
+    
+    transactionsBody.appendChild(row);
+    
+    if (txData.inputs && txData.inputs.length > 0) {
+      txData.inputs.forEach((input, index) => {
+        if (input.prev_out && input.prev_out.addr) {
+          const inputRow = document.createElement('tr');
+          inputRow.style.backgroundColor = 'rgba(220, 53, 69, 0.05)';
+          
+          const dateCell = createSafeElement('td', '', '');
+          inputRow.appendChild(dateCell);
+          
+          const typeCell = document.createElement('td');
+          const typeSpan = createSafeElement('span', 'transaction-type sent', 'Input');
+          typeCell.appendChild(typeSpan);
+          inputRow.appendChild(typeCell);
+          
+          const addrCell = document.createElement('td');
+          const addrLink = document.createElement('a');
+          addrLink.href = `https://www.blockchain.com/btc/address/${encodeURIComponent(input.prev_out.addr)}`;
+          addrLink.target = '_blank';
+          addrLink.rel = 'noopener noreferrer';
+          addrLink.textContent = sanitizeText(input.prev_out.addr.substring(0, 10) + '...');
+          addrCell.appendChild(addrLink);
+          inputRow.appendChild(addrCell);
+          
+          const btcAmount = (input.prev_out.value / 100000000) || 0;
+          const btcCell = createSafeElement('td', 'sent', `-${btcAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })} BTC`);
+          inputRow.appendChild(btcCell);
+          
+          const usdCell = createSafeElement('td', '', `${(btcAmount * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+          inputRow.appendChild(usdCell);
+          
+          transactionsBody.appendChild(inputRow);
+        }
+      });
+    }
+    
+    if (txData.out && txData.out.length > 0) {
+      txData.out.forEach((output, index) => {
+        if (output.addr) {
+          const outputRow = document.createElement('tr');
+          outputRow.style.backgroundColor = 'rgba(23, 162, 184, 0.05)';
+          
+          const dateCell = createSafeElement('td', '', '');
+          outputRow.appendChild(dateCell);
+          
+          const typeCell = document.createElement('td');
+          const typeSpan = createSafeElement('span', 'transaction-type received', 'Output');
+          typeCell.appendChild(typeSpan);
+          outputRow.appendChild(typeCell);
+          
+          const addrCell = document.createElement('td');
+          const addrLink = document.createElement('a');
+          addrLink.href = `https://www.blockchain.com/btc/address/${encodeURIComponent(output.addr)}`;
+          addrLink.target = '_blank';
+          addrLink.rel = 'noopener noreferrer';
+          addrLink.textContent = sanitizeText(output.addr.substring(0, 10) + '...');
+          addrCell.appendChild(addrLink);
+          outputRow.appendChild(addrCell);
+          
+          const btcAmount = (output.value / 100000000) || 0;
+          const btcCell = createSafeElement('td', 'received', `+${btcAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })} BTC`);
+          outputRow.appendChild(btcCell);
+          
+          const usdCell = createSafeElement('td', '', `${(btcAmount * btcToUsdRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+          outputRow.appendChild(usdCell);
+          
+          outputRow.appendChild(outputRow);
+        }
+      });
+    }
+    
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("results").style.display = "block";
+    
+  } catch (error) {
+    console.error('Error:', error);
+    showError("Unable to fetch transaction data. Please try again later.");
+    document.getElementById("loading").style.display = "none";
+  }
+}
+
+async function displayTransactions(address, btcToUsdRate, existingData = null) {
+  try {
+    let data;
+    if (existingData) {
+      data = existingData;
+    } else {
+      try {
+        const txUrl = `https://blockchain.info/rawaddr/${encodeURIComponent(address)}?limit=50`;
+        const txResponse = await fetch(txUrl, { 
+          timeout: 15000,
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!txResponse.ok) {
+          throw new Error("Unable to fetch transaction data");
+        }
+        
+        data = await txResponse.json();
+      } catch (fetchError) {
+        console.error('Error fetching transaction data:', fetchError);
+        document.getElementById("noTransactions").style.display = "block";
+        setTextContent("noTransactions", "Unable to load transactions");
+        return;
+      }
+    }
+    
+    const transactionsBody = document.getElementById("transactionsBody");
+    transactionsBody.innerHTML = "";
+    
+    if (!data || !data.txs || data.txs.length === 0) {
+      document.getElementById("noTransactions").style.display = "block";
+      return;
+    }
+    
+    document.getElementById("noTransactions").style.display = "none";
+    
+    let transactionCount = 0;
+    
+    data.txs.forEach(tx => {
+      try {
+        if (!tx || !tx.hash || !tx.time) {
+          return;
+        }
+        
+        const txDate = new Date(tx.time * 1000);
+        const formattedDate = txDate.toLocaleDateString() + ' ' + txDate.toLocaleTimeString();
+        
+        let isIncoming = false;
+        let relevantAmount = 0;
+        
+        if (tx.out && Array.isArray(tx.out)) {
+          tx.out.forEach(output => {
+            if (output.addr === address || 
+                (output.scriptPubKey && output.scriptPubKey.addresses && 
+                 Array.isArray(output.scriptPubKey.addresses) && 
+                 output.scriptPubKey.addresses.includes(address))) {
+              isIncoming = true;
+              relevantAmount += output.value || 0;
+            }
+          });
+        }
+        
+        if (!isIncoming && tx.inputs && Array.isArray(tx.inputs)) {
+          tx.inputs.forEach(input => {
+            if ((input.prev_out && input.prev_out.addr === address) || 
+                (input.prev_out && input.prev_out.scriptPubKey && 
+                 input.prev_out.scriptPubKey.addresses && 
+                 Array.isArray(input.prev_out.scriptPubKey.addresses) && 
+                 input.prev_out.scriptPubKey.addresses.includes(address))) {
+              relevantAmount += (input.prev_out && input.prev_out.value) || 0;
+            }
+          });
+        }
+        
+        if (relevantAmount === 0) {
+          return;
+        }
+        
+        const btcAmount = relevantAmount / 100000000;
+        const usdAmount = btcAmount * btcToUsdRate;
+        
+        const row = document.createElement('tr');
+        
+        const dateCell = createSafeElement('td', '', formattedDate);
+        row.appendChild(dateCell);
+        
+        const typeCell = document.createElement('td');
+        const typeSpan = createSafeElement('span', `transaction-type ${isIncoming ? 'received' : 'sent'}`, isIncoming ? 'Received' : 'Sent');
+        typeCell.appendChild(typeSpan);
+        row.appendChild(typeCell);
+        
+        const txIdCell = document.createElement('td');
+        const txLink = document.createElement('a');
+        txLink.href = `https://www.blockchain.com/btc/tx/${encodeURIComponent(tx.hash)}`;
+        txLink.target = '_blank';
+        txLink.rel = 'noopener noreferrer';
+        txLink.textContent = sanitizeText(tx.hash.substring(0, 10) + '...');
+        txIdCell.appendChild(txLink);
+        row.appendChild(txIdCell);
+        
+        const btcCell = createSafeElement('td', isIncoming ? 'received' : 'sent', `${isIncoming ? '+' : '-'}${btcAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })} BTC`);
+        row.appendChild(btcCell);
+        
+        const usdCell = createSafeElement('td', '', `${usdAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+        row.appendChild(usdCell);
+        
+        transactionsBody.appendChild(row);
+        transactionCount++;
+      } catch (txError) {
+        console.error('Error processing transaction:', txError);
+      }
+    });
+    
+    if (transactionCount === 0) {
+      document.getElementById("noTransactions").style.display = "block";
+    }
+    
+  } catch (error) {
+    console.error('Error displaying transactions:', error);
+    document.getElementById("noTransactions").style.display = "block";
+    setTextContent("noTransactions", "Unable to load transactions");
+  }
+}
+
+function showError(message) {
+  const errorElement = document.getElementById("errorMessage");
+  if (errorElement) {
+    errorElement.textContent = sanitizeText(String(message));
+    errorElement.style.display = "block";
+  }
+  
+  document.getElementById("loading").style.display = "none";
+  
+  if (document.getElementById("results").style.display === "none") {
+    document.getElementById("intro-content").style.display = "block";
+  }
+}
+
+document.getElementById("address").addEventListener("keyup", function(event) {
+  if (event.key === "Enter") {
+    getBalance();
+  }
+});
   </script>
 
   <footer class="site-footer">
@@ -1244,16 +1247,21 @@ async function getBalance() {
   
   <script>
     function copyToClipboard(text) {
+      if (!text || typeof text !== 'string') {
+        return;
+      }
+      
       navigator.clipboard.writeText(text).then(() => {
         const notification = document.getElementById('copy-notification');
-        notification.style.opacity = '1';
-        
-        // Automatically hide notification after 3 seconds
-        setTimeout(() => {
-          notification.style.opacity = '0';
-        }, 3000);
+        if (notification) {
+          notification.style.opacity = '1';
+          
+          setTimeout(() => {
+            notification.style.opacity = '0';
+          }, 3000);
+        }
       }).catch(err => {
-        console.error('Failed to copy: ', err);
+        console.error('Failed to copy');
       });
     }
   </script>
