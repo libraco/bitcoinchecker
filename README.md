@@ -4,30 +4,28 @@
 
 ## Overview
 
-Bitcoin Checker is a simple, user-friendly web application that allows users to check Bitcoin wallet addresses and transaction hashes, view balances, and track transaction history. This tool provides real-time information about Bitcoin addresses and transactions using the Blockchain.com API.
+Bitcoin Checker is a simple, user-friendly web application that allows users to check Bitcoin wallet addresses and transaction hashes, view balances, and track transaction history. The application features a classic, retro UI inspired by the legendary Bitcointalk.org forum and provides real-time information using the Mempool.space API.
 
 ## Features
 
 - **Address Balance Checking**: View the current balance of any Bitcoin address
 - **Transaction Details**: Examine the details of specific Bitcoin transactions
 - **Transaction History**: View the transaction history of a Bitcoin address
-- **Real-time BTC to USD Conversion**: All Bitcoin values are automatically converted to USD
+- **Real-time BTC to USD Conversion**: All Bitcoin values are automatically converted to USD (utilizing CoinDesk, CoinGecko, or Binance APIs)
+- **Classic Retro UI**: Styled after the classic Bitcointalk.org forum for a nostalgic feel
 - **Responsive Design**: Works on desktop and mobile devices
 
 ## Demo
 
 You can try the live demo by visiting [Bitcoin Checker Demo](https://libraco.github.io/bitcoinchecker/)
 
-## Screenshots
-
-*Add screenshots of your application here*
-
 ## Technologies Used
 
 - HTML5
-- CSS3
+- CSS3 (Classic Bitcointalk Theme)
 - JavaScript (ES6+)
-- Blockchain.com API
+- Mempool.space API (Blockchain Data)
+- CoinDesk / CoinGecko / Binance APIs (Price Data)
 - Font Awesome for icons
 
 ## How to Use
@@ -42,7 +40,7 @@ You can try the live demo by visiting [Bitcoin Checker Demo](https://libraco.git
 ### Prerequisites
 
 - A modern web browser
-- Internet connection (to access the Blockchain.com API)
+- Internet connection (to access the required APIs)
 
 ### Installation
 
@@ -60,11 +58,17 @@ You can try the live demo by visiting [Bitcoin Checker Demo](https://libraco.git
 
 ## API Usage
 
-This project uses the following Blockchain.com API endpoints:
+This project uses the following endpoints to function:
 
-- `/rawaddr/{bitcoin_address}` - Get address information and transactions
-- `/rawtx/{tx_hash}` - Get detailed transaction information
-- `/ticker` - Get current BTC to USD exchange rate
+**Mempool.space API** (For on-chain data)
+- `/api/address/{bitcoin_address}` - Get address statistics and balances
+- `/api/address/{bitcoin_address}/txs` - Get transaction history for an address
+- `/api/tx/{tx_hash}` - Get detailed transaction information
+
+**Price APIs** (Fallback mechanism for USD rates)
+- `api.coindesk.com`
+- `api.coingecko.com`
+- `api.binance.com`
 
 ## Contributing
 
@@ -82,7 +86,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- [Blockchain.com API](https://www.blockchain.com/api) for providing Bitcoin data
+- [Mempool.space API](https://mempool.space/docs/api/rest) for providing reliable Bitcoin data
+- [Bitcointalk.org](https://bitcointalk.org/) for the UI inspiration
 - [Font Awesome](https://fontawesome.com/) for the icons
 
 ## Donation
