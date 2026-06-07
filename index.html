@@ -4,7 +4,7 @@
   <title>Bitcoin Checker - Check BTC Address Balance and Transactions</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="A simple tool to check Bitcoin wallet addresses and transaction hashes, view balances, and track transaction history.">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' https://bitcoin.org data:; connect-src 'self' https://blockchain.info https://api.coindesk.com https://api.coingecko.com https://api.binance.com https://www.blockchain.com https://mempool.space;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' https://bitcoin.org data:; connect-src 'self' https://blockchain.info https://api.coindesk.com https://api.binance.com https://api.kraken.com https://www.blockchain.com https://mempool.space;">
   <link rel="icon" href="https://bitcoin.org/favicon.ico" type="image/x-icon">
   <link rel="shortcut icon" href="https://bitcoin.org/favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" 
@@ -271,6 +271,17 @@
     padding: 20px;
     font-weight: bold;
   }
+
+  .avg-cost-cell {
+    color: #7a4f00;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  th[title] {
+    cursor: help;
+    border-bottom: 1px dashed var(--primary-color);
+  }
     
   .site-footer {
     text-align: center;
@@ -433,11 +444,12 @@
           <table id="transactions">
             <thead>
               <tr>
-                <th>Date & Time</th>
+                <th>Date &amp; Time</th>
                 <th>Type</th>
                 <th>Transaction ID</th>
                 <th>Amount BTC</th>  
                 <th>Amount USD</th>
+                <th title="Giá BTC trung bình tại ngày nhận giao dịch">Avg Cost</th>
               </tr>
             </thead>
             <tbody id="transactionsBody"></tbody>
@@ -910,6 +922,80 @@ async function getTransactionDetails(txHash) {
   }
 }
 
+// Cache giá lịch sử để tránh gọi API nhiều lần cho cùng 1 ngày (UTC)
+const historicalPriceCache = {};
+
+async function fetchHistoricalBtcPrice(unixTimestamp) {
+  try {
+    const date = new Date(unixTimestamp * 1000);
+
+    // Dùng UTC để khớp chính xác với timestamp blockchain
+    const yyyyUTC = date.getUTCFullYear();
+    const moUTC   = date.getUTCMonth();      // 0-indexed, dùng cho Date.UTC()
+    const ddUTC   = date.getUTCDate();
+    const cacheKey = `${yyyyUTC}-${String(moUTC + 1).padStart(2,'0')}-${String(ddUTC).padStart(2,'0')}`;
+
+    if (historicalPriceCache[cacheKey] !== undefined) {
+      return historicalPriceCache[cacheKey];
+    }
+
+    // Mốc đầu và cuối ngày UTC tính bằng milliseconds (dùng cho Binance)
+    const dayStartMs = Date.UTC(yyyyUTC, moUTC, ddUTC, 0, 0, 0);
+    const dayEndMs   = Date.UTC(yyyyUTC, moUTC, ddUTC, 23, 59, 59);
+
+    let price = null;
+
+    // --- Primary: Binance Klines API (BTCUSDT, khung ngày) ---
+    // Trả về OHLC → Avg Cost = (Open + High + Low + Close) / 4
+    // Binance có dữ liệu từ tháng 8/2017 đến nay
+    try {
+      const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1d&startTime=${dayStartMs}&endTime=${dayEndMs}&limit=1`;
+      const binanceRes = await fetch(binanceUrl, { headers: { 'Accept': 'application/json' } });
+
+      if (binanceRes.ok) {
+        const klines = await binanceRes.json();
+        // Mỗi phần tử: [openTime, open, high, low, close, volume, ...]
+        if (klines && klines.length > 0) {
+          const [, open, high, low, close] = klines[0];
+          price = (parseFloat(open) + parseFloat(high) + parseFloat(low) + parseFloat(close)) / 4;
+        }
+      }
+    } catch (binanceErr) {
+      console.warn('Binance price fetch failed:', binanceErr);
+    }
+
+    // --- Fallback: Kraken OHLC API (XBTUSD, khung ngày = 1440 phút) ---
+    // Kraken có dữ liệu từ năm 2013, dùng cho giao dịch cũ hơn Binance
+    if (price === null) {
+      try {
+        const sinceTs = Math.floor(dayStartMs / 1000);
+        const krakenUrl = `https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=1440&since=${sinceTs}`;
+        const krakenRes = await fetch(krakenUrl, { headers: { 'Accept': 'application/json' } });
+
+        if (krakenRes.ok) {
+          const krakenJson = await krakenRes.json();
+          // Kraken trả result.XXBTZUSD hoặc result.XBTUSD
+          const ohlcRows = krakenJson?.result?.XXBTZUSD || krakenJson?.result?.XBTUSD || [];
+          // Tìm row khớp với ngày (Kraken trả từ `since` trở đi, lấy phần tử đầu)
+          if (ohlcRows.length > 0) {
+            // Format: [time, open, high, low, close, vwap, volume, count]
+            const [, open, high, low, close] = ohlcRows[0];
+            price = (parseFloat(open) + parseFloat(high) + parseFloat(low) + parseFloat(close)) / 4;
+          }
+        }
+      } catch (krakenErr) {
+        console.warn('Kraken price fetch failed:', krakenErr);
+      }
+    }
+
+    historicalPriceCache[cacheKey] = price;
+    return price;
+  } catch (e) {
+    console.error('fetchHistoricalBtcPrice error:', e);
+    return null;
+  }
+}
+
 async function displayTransactions(address, btcToUsdRate, existingData = null) {
   try {
     let data;
@@ -950,11 +1036,12 @@ async function displayTransactions(address, btcToUsdRate, existingData = null) {
     
     let transactionCount = 0;
     
-    data.txs.forEach(tx => {
+    // Dùng for...of để có thể await bên trong vòng lặp (fetch giá lịch sử)
+    for (const tx of data.txs) {
       try {
         const hash = tx.txid || tx.hash;
         if (!tx || !hash) {
-          return;
+          continue;
         }
         
         const txTime = (tx.status && tx.status.block_time) ? tx.status.block_time : Math.floor(Date.now() / 1000);
@@ -982,11 +1069,17 @@ async function displayTransactions(address, btcToUsdRate, existingData = null) {
         }
         
         if (relevantAmount === 0) {
-          return;
+          continue;
         }
         
         const btcAmount = relevantAmount / 100000000;
         const usdAmount = btcAmount * btcToUsdRate;
+        
+        // Lấy giá BTC lịch sử tại ngày giao dịch (chỉ cho Received)
+        let avgCostPrice = null;
+        if (isIncoming) {
+          avgCostPrice = await fetchHistoricalBtcPrice(txTime);
+        }
         
         const row = document.createElement('tr');
         
@@ -1013,12 +1106,28 @@ async function displayTransactions(address, btcToUsdRate, existingData = null) {
         const usdCell = createSafeElement('td', '', `${usdAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
         row.appendChild(usdCell);
         
+        // Cột Avg Cost: giá BTC tại ngày nhận giao dịch
+        let avgCostText = '—';
+        let avgCostTitle = '';
+        if (isIncoming) {
+          if (avgCostPrice !== null) {
+            avgCostText = '$' + avgCostPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            avgCostTitle = 'Giá BTC tại ngày nhận giao dịch: $' + avgCostPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          } else {
+            avgCostText = 'N/A';
+            avgCostTitle = 'Không thể lấy giá lịch sử';
+          }
+        }
+        const avgCostCell = createSafeElement('td', 'avg-cost-cell', avgCostText);
+        if (avgCostTitle) avgCostCell.title = avgCostTitle;
+        row.appendChild(avgCostCell);
+        
         transactionsBody.appendChild(row);
         transactionCount++;
       } catch (txError) {
         console.error('Error processing transaction:', txError);
       }
-    });
+    }
     
     if (transactionCount === 0) {
       document.getElementById("noTransactions").style.display = "block";
